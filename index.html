@@ -773,6 +773,9 @@ function syncFavs(){
   });
 }
 const BASE='https://api.binance.com/api/v3';
+const FBASE='https://fapi.binance.com/fapi/v1';
+let FUTURES_SYMS=new Set();
+function apiBase(sym){ return FUTURES_SYMS.has(sym)?FBASE:BASE; }
 
 // ═══════════════════════════════════════
 // STATE
@@ -829,32 +832,59 @@ const cls=(v)=>v>=0?'pos':'neg';
 // TICKER FETCH
 // ═══════════════════════════════════════
 async function fetchAllCoins(){
+  const inp=document.getElementById('coinSearch');
+  if(inp) inp.placeholder='Chargement des cryptos...';
   try{
-    const res=await fetch('https://api.binance.com/api/v3/exchangeInfo');
-    if(!res.ok) return;
-    const data=await res.json();
-    ALL_COINS=data.symbols
+    const [spotRes,futRes]=await Promise.all([
+      fetch('https://api.binance.com/api/v3/exchangeInfo'),
+      fetch('https://fapi.binance.com/fapi/v1/exchangeInfo')
+    ]);
+    const [spotData,futData]=await Promise.all([spotRes.json(),futRes.json()]);
+    const spotCoins=spotData.symbols
       .filter(s=>s.quoteAsset==='USDT'&&s.status==='TRADING')
-      .map(s=>{
+      .map(s=>{const def=DEFAULT_COINS.find(d=>d.sym===s.symbol);return def||{sym:s.symbol,name:s.baseAsset,short:s.baseAsset,icon:'◎',futures:false};});
+    const spotSymSet=new Set(spotCoins.map(c=>c.sym));
+    FUTURES_SYMS=new Set();
+    const futCoins=[];
+    futData.symbols
+      .filter(s=>s.quoteAsset==='USDT'&&s.status==='TRADING'&&!spotSymSet.has(s.symbol))
+      .forEach(s=>{
+        FUTURES_SYMS.add(s.symbol);
         const def=DEFAULT_COINS.find(d=>d.sym===s.symbol);
-        return def||{sym:s.symbol,name:s.baseAsset,short:s.baseAsset,icon:'◎'};
+        futCoins.push(def||{sym:s.symbol,name:s.baseAsset,short:s.baseAsset,icon:'◈',futures:true});
       });
+    ALL_COINS=[...spotCoins,...futCoins];
+    if(inp) inp.placeholder='Rechercher parmi '+ALL_COINS.length+' cryptos...';
     syncFavs();
     populateCoinSelect();
-    console.log('Loaded',ALL_COINS.length,'pairs');
-  }catch(e){console.error('fetchAllCoins:',e);}
+    const q=inp?.value?.trim();
+    if(q) renderSidebar(q);
+    else renderSidebar('');
+    console.log('Spot:',spotCoins.length,'| Futures-only:',futCoins.length,'| Total:',ALL_COINS.length);
+  }catch(e){
+    console.error('fetchAllCoins:',e);
+    if(inp) inp.placeholder='Rechercher...';
+  }
 }
 
 async function fetchPricesFor(syms){
   try{
-    const q='['+syms.slice(0,20).map(s=>'"'+s+'"').join(',')+']';
-    const res=await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols='+encodeURIComponent(q));
-    if(!res.ok) return;
-    const data=await res.json();
-    data.forEach(d=>{
-      prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),
-        open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice)};
-    });
+    const spotSyms=syms.filter(s=>!FUTURES_SYMS.has(s)).slice(0,20);
+    const futSyms=syms.filter(s=>FUTURES_SYMS.has(s)).slice(0,20);
+    const reqs=[];
+    if(spotSyms.length){
+      const q='['+spotSyms.map(s=>'"'+s+'"').join(',')+']';
+      reqs.push(fetch(`${BASE}/ticker/24hr?symbols=`+encodeURIComponent(q)).then(r=>r.json()).then(data=>{
+        data.forEach(d=>{prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice),isFutures:false};});
+      }));
+    }
+    if(futSyms.length){
+      const q='['+futSyms.map(s=>'"'+s+'"').join(',')+']';
+      reqs.push(fetch(`${FBASE}/ticker/24hr?symbols=`+encodeURIComponent(q)).then(r=>r.json()).then(data=>{
+        data.forEach(d=>{prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice),isFutures:true};});
+      }));
+    }
+    await Promise.all(reqs);
     const q2=document.getElementById('coinSearch')?.value||'';
     if(q2) renderSidebar(q2);
   }catch(e){}
@@ -880,17 +910,23 @@ function initSearch(){
 
 async function fetchTicker(){
   try{
-    const syms=COINS.map(c=>`"${c.sym}"`).join(',');
-    const res=await fetch(`${BASE}/ticker/24hr?symbols=[${syms}]`);
-    if(!res.ok) throw new Error(res.status);
-    const data=await res.json();
-    data.forEach(d=>{
-      prices[d.symbol]={
-        price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),
-        open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),
-        high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice),
-      };
-    });
+    // Séparer les coins spot et futures
+    const spotCoins=COINS.filter(c=>!FUTURES_SYMS.has(c.sym));
+    const futCoins=COINS.filter(c=>FUTURES_SYMS.has(c.sym));
+    const reqs=[];
+    if(spotCoins.length){
+      const syms=spotCoins.map(c=>`"${c.sym}"`).join(',');
+      reqs.push(fetch(`${BASE}/ticker/24hr?symbols=[${syms}]`).then(r=>r.json()).then(data=>{
+        data.forEach(d=>{prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice),isFutures:false};});
+      }));
+    }
+    if(futCoins.length){
+      const syms=futCoins.map(c=>`"${c.sym}"`).join(',');
+      reqs.push(fetch(`${FBASE}/ticker/24hr?symbols=[${syms}]`).then(r=>r.json()).then(data=>{
+        data.forEach(d=>{prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice),isFutures:true};});
+      }));
+    }
+    await Promise.all(reqs);
     renderSidebar(); renderTicker(); renderMobileList();
     if(selected) updateHero();
     document.getElementById('lastUpdate').textContent=
@@ -945,7 +981,8 @@ function makeCoinRow(coin){
 
   const infoEl=document.createElement('div');
   infoEl.className='coin-info';
-  infoEl.innerHTML='<div class="coin-name">'+coin.name+'</div><div class="coin-sym">'+coin.short+'</div>';
+  const fTag=coin.futures?'<span style="font-size:9px;background:rgba(255,149,0,0.15);color:#ff9500;border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700;vertical-align:middle;">FUTURES</span>':'';
+  infoEl.innerHTML='<div class="coin-name">'+coin.name+fTag+'</div><div class="coin-sym">'+coin.short+'</div>';
 
   const rightEl=document.createElement('div');
   rightEl.className='coin-right';
@@ -1050,7 +1087,8 @@ function updateHero(){
   const p=prices[selected.sym]; if(!p) return;
   document.getElementById('heroIcon').textContent=selected.icon;
   document.getElementById('heroName').textContent=selected.name;
-  document.getElementById('heroSym').textContent=selected.short+'/USDT';
+  const fBadge=selected.futures?' 🔶 FUTURES':'';
+  document.getElementById('heroSym').textContent=selected.short+'/USDT'+fBadge;
   document.getElementById('heroPrice').textContent=fmt(p.price);
   const b=document.getElementById('heroBadge');
   b.textContent=`${p.change>=0?'▲ +':'▼ '}${p.change.toFixed(2)}% 24h`;
@@ -1091,7 +1129,7 @@ async function loadChart(sym,interval,limit){
   chartAbort=new AbortController();
   document.getElementById('chartOverlay').classList.add('show');
   try{
-    const res=await fetch(`${BASE}/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,{signal:chartAbort.signal});
+    const res=await fetch(`${apiBase(sym)}/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,{signal:chartAbort.signal});
     if(!res.ok) throw new Error(res.status);
     const k=await res.json();
     drawChart(k.map(r=>new Date(r[0])), k.map(r=>parseFloat(r[4])));
@@ -1173,7 +1211,7 @@ function stopLiveChart(){
 function startLiveChart(sym){
   stopLiveChart();
   // Seed with last 60 1m candles to have history
-  fetch(`${BASE}/klines?symbol=${sym}&interval=1m&limit=60`).then(r=>r.json()).then(k=>{
+  fetch(`${apiBase(sym)}/klines?symbol=${sym}&interval=1m&limit=60`).then(r=>r.json()).then(k=>{
     liveLabels=k.map(r=>new Date(r[0]));
     liveData=k.map(r=>parseFloat(r[4]));
     drawLiveChart();
@@ -1285,7 +1323,7 @@ async function loadSignal(){
   const tfMap={'2h':['15m',60],'4h':['1h',100],'24h':['4h',100]};
   const [interval,limit]=tfMap[currentTF||'4h']||['1h',100];
   try{
-    const res=await fetch(`${BASE}/klines?symbol=${selected.sym}&interval=${interval}&limit=${limit}`);
+    const res=await fetch(`${apiBase(selected.sym)}/klines?symbol=${selected.sym}&interval=${interval}&limit=${limit}`);
     if(!res.ok) throw new Error(res.status);
     const k=await res.json();
     const closes=k.map(r=>parseFloat(r[4]));
@@ -2068,7 +2106,7 @@ async function loadSuiviChart(pos){
   if(canvas) canvas.style.display='none';
 
   try{
-    const res=await fetch('https://api.binance.com/api/v3/klines?symbol='+pos.sym+'&interval='+interval+'&limit='+limit);
+    const res=await fetch(`${apiBase(pos.sym)}/klines?symbol=${pos.sym}&interval=${interval}&limit=${limit}`);
     if(!res.ok) throw new Error();
     const k=await res.json();
     const buyTs=new Date(pos.createdAt).getTime();
