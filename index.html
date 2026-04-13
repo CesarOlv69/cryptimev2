@@ -437,9 +437,12 @@ header {
 
 <header>
   <div class="logo">Crypt<span class="logo-dot">i</span>me</div>
-  <div class="live-badge">
-    <div class="live-dot"></div>
-    <span id="lastUpdate">—</span>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button id="currencyToggle" onclick="toggleCurrency()" style="font-family:-apple-system,sans-serif;font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;transition:all 0.15s;letter-spacing:0.2px;">$ USD</button>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span id="lastUpdate">—</span>
+    </div>
   </div>
 </header>
 
@@ -680,23 +683,49 @@ const BASE='https://api.binance.com/api/v3';
 let prices={}, selected=null, chart=null, chartAbort=null;
 let currentInterval='4h', currentLimit=180;
 let currentTF='2h', signalData=null;
+let currency='USD', eurRate=1;
+
+async function fetchEurRate(){
+  try{
+    const res=await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT');
+    if(!res.ok) return;
+    const data=await res.json();
+    eurRate=parseFloat(data.price)||1;
+  }catch(e){}
+}
+
+function toggleCurrency(){
+  currency=currency==='USD'?'EUR':'USD';
+  const btn=document.getElementById('currencyToggle');
+  if(btn) btn.textContent=currency==='USD'?'$ USD':'€ EUR';
+  // Refresh all displays
+  renderSidebar(); renderTicker(); renderMobileList();
+  if(selected){ updateHero(); updateStats(); }
+  if(signalData) renderSignal(signalData);
+  positions.forEach(pos=>updateSuiviCard(pos));
+}
 
 // ═══════════════════════════════════════
 // FORMAT
 // ═══════════════════════════════════════
+const toDisplay=(n)=>currency==='EUR'?n/eurRate:n;
+const sym=()=>currency==='EUR'?'€':'$';
 const fmt=(n)=>{
   if(n==null||isNaN(n)) return '—';
-  if(n>=10000) return '$'+n.toLocaleString('fr-FR',{maximumFractionDigits:0});
-  if(n>=100)   return '$'+n.toFixed(2);
-  if(n>=1)     return '$'+n.toFixed(4);
-  if(n>=0.001) return '$'+n.toFixed(5);
-  return '$'+n.toFixed(8);
+  const v=toDisplay(n);
+  if(v>=10000) return sym()+v.toLocaleString('fr-FR',{maximumFractionDigits:0});
+  if(v>=100)   return sym()+v.toFixed(2);
+  if(v>=1)     return sym()+v.toFixed(4);
+  if(v>=0.001) return sym()+v.toFixed(5);
+  return sym()+v.toFixed(8);
 };
 const fmtVol=(n)=>{
-  if(n>=1e9) return '$'+(n/1e9).toFixed(2)+'B';
-  if(n>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
-  return '$'+(n/1e3).toFixed(1)+'K';
+  const v=toDisplay(n);
+  if(v>=1e9) return sym()+(v/1e9).toFixed(2)+'B';
+  if(v>=1e6) return sym()+(v/1e6).toFixed(1)+'M';
+  return sym()+(v/1e3).toFixed(1)+'K';
 };
+
 const cls=(v)=>v>=0?'pos':'neg';
 
 // ═══════════════════════════════════════
@@ -1954,6 +1983,7 @@ function startSuiviRefresh(){
 }
 
 async function init(){
+  await fetchEurRate();
   await fetchTicker();
   selectCoin(COINS[0]);
   setInterval(fetchTicker,10000);
