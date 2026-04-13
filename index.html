@@ -422,6 +422,36 @@ header {
 .suivi-close-btn:hover{background:rgba(255,59,48,0.12);}
 .suivi-refresh-info{font-size:10px;color:var(--text3);text-align:center;padding:2px 0 4px;}
 
+/* ── LIVE BUTTON ── */
+.p-btn-live{background:rgba(52,199,89,0.1);color:var(--green);border-color:rgba(52,199,89,0.3);font-weight:700;}
+.p-btn-live.active{background:var(--green);border-color:var(--green);color:#fff;}
+
+/* ── LONG/SHORT SIMULATOR ── */
+.longshort-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+.ls-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.ls-title{font-size:15px;font-weight:700;color:var(--text);}
+.ls-type-toggle{display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:0;}
+.ls-type-btn{flex:1;padding:6px 14px;border-radius:8px;border:none;background:transparent;font-family:-apple-system,sans-serif;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);transition:all 0.15s;white-space:nowrap;}
+.ls-type-btn.active{background:var(--surface);font-weight:700;box-shadow:0 1px 6px rgba(0,0,0,0.1);}
+#lsBtnLong.active{color:var(--green);}
+#lsBtnShort.active{color:var(--red);}
+.ls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+@media(max-width:480px){.ls-grid{grid-template-columns:1fr;}}
+.ls-lever-wrap{display:flex;align-items:center;gap:8px;}
+.ls-lever-wrap input[type=range]{flex:1;accent-color:var(--accent);height:4px;cursor:pointer;}
+.ls-lever-val{font-size:14px;font-weight:700;color:var(--accent);min-width:34px;text-align:right;}
+.ls-liq-bar{background:var(--bg2);border-radius:10px;padding:10px 14px;margin-bottom:12px;}
+.ls-liq-label{font-size:12px;color:var(--orange);font-weight:600;margin-bottom:6px;}
+.ls-liq-track{height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.ls-liq-fill{height:100%;border-radius:2px;transition:width 0.4s ease;}
+.ls-result{background:var(--bg2);border-radius:12px;padding:14px;animation:fadeUp 0.3s ease;}
+.ls-res-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;text-align:center;}
+.ls-res-block{background:var(--surface);border-radius:8px;padding:10px 6px;}
+.ls-res-label{font-size:10px;color:var(--text2);font-weight:500;margin-bottom:4px;}
+.ls-res-val{font-size:16px;font-weight:700;color:var(--text);}
+.ls-res-lines{display:flex;flex-direction:column;gap:7px;}
+.ls-hint{font-size:12px;color:var(--text3);text-align:center;padding:6px 0;}
+
 /* ── EMPTY STATE ── */
 #emptyState{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text2);font-size:14px;padding:40px;text-align:center;}
 
@@ -498,6 +528,9 @@ header {
       <!-- CHART -->
       <div class="tab-content active" id="tab-chart">
         <div class="period-row">
+          <button class="p-btn p-btn-live" data-interval="live" data-limit="0">⚡1S</button>
+          <button class="p-btn" data-interval="1m" data-limit="60">1MIN</button>
+          <button class="p-btn" data-interval="1h" data-limit="24">1H</button>
           <button class="p-btn" data-interval="1m" data-limit="120">2H</button>
           <button class="p-btn" data-interval="1h" data-limit="168">1S</button>
           <button class="p-btn active" data-interval="4h" data-limit="180">1M</button>
@@ -593,6 +626,69 @@ header {
           <div class="notif-prompt" id="notifPrompt" style="display:none;">
             <span>🔔 Activer les notifications pour les alertes</span>
             <button onclick="requestNotifPermission()">Activer</button>
+          </div>
+
+          <!-- SIMULATEUR LONG/SHORT -->
+          <div class="longshort-card">
+            <div class="ls-header">
+              <span class="ls-title">⚡ Simulateur Long / Short</span>
+              <div class="ls-type-toggle">
+                <button class="ls-type-btn active" id="lsBtnLong" onclick="setLSType('long')">📈 Long</button>
+                <button class="ls-type-btn" id="lsBtnShort" onclick="setLSType('short')">📉 Short</button>
+              </div>
+            </div>
+            <div class="ls-grid">
+              <div class="field"><label>Crypto</label>
+                <select id="lsCoin" class="pos-select" onchange="updateLSPreview()">
+                  <option value="">Choisir...</option>
+                </select>
+              </div>
+              <div class="field"><label>Mise ($)</label>
+                <input type="number" id="lsCapital" placeholder="1000" min="1" oninput="updateLSPreview()">
+              </div>
+              <div class="field"><label>Levier</label>
+                <div class="ls-lever-wrap">
+                  <input type="range" id="lsLeverage" min="1" max="100" value="10" oninput="updateLSPreview();document.getElementById('lsLeverVal').textContent=this.value+'×'">
+                  <span class="ls-lever-val" id="lsLevVal">10×</span>
+                </div>
+              </div>
+              <div class="field"><label>Prix d'entrée</label>
+                <input type="number" id="lsEntry" placeholder="auto" step="any" oninput="updateLSPreview()">
+              </div>
+              <div class="field"><label>Prix de clôture</label>
+                <input type="number" id="lsExit" placeholder="simulé" step="any" oninput="updateLSPreview()">
+              </div>
+              <div class="field"><label>Frais maker (%)</label>
+                <input type="number" id="lsFees" value="0.02" min="0" max="1" step="0.001" oninput="updateLSPreview()">
+              </div>
+            </div>
+            <div class="ls-liq-bar" id="lsLiqBar" style="display:none;">
+              <div class="ls-liq-label">⚠️ Liquidation estimée : <span id="lsLiqPrice">—</span></div>
+              <div class="ls-liq-track"><div class="ls-liq-fill" id="lsLiqFill"></div></div>
+            </div>
+            <div class="ls-result" id="lsResult" style="display:none;">
+              <div class="ls-res-row">
+                <div class="ls-res-block">
+                  <div class="ls-res-label">PnL net</div>
+                  <div class="ls-res-val" id="lsPnl">—</div>
+                </div>
+                <div class="ls-res-block">
+                  <div class="ls-res-label">ROE</div>
+                  <div class="ls-res-val" id="lsRoe">—</div>
+                </div>
+                <div class="ls-res-block">
+                  <div class="ls-res-label">Position</div>
+                  <div class="ls-res-val" id="lsPosition">—</div>
+                </div>
+              </div>
+              <div class="ls-res-lines">
+                <div class="r-line"><span class="rl">Marge utilisée</span><span class="rv" id="lsMargin">—</span></div>
+                <div class="r-line"><span class="rl">Frais totaux</span><span class="rv neg" id="lsFeesTotal">—</span></div>
+                <div class="r-line"><span class="rl">PnL brut</span><span class="rv" id="lsPnlGross">—</span></div>
+                <div class="r-line"><span class="rl">Liquidation</span><span class="rv neg" id="lsLiqVal">—</span></div>
+              </div>
+            </div>
+            <div class="ls-hint" id="lsHint">Remplis les champs pour simuler ta position</div>
           </div>
           <div class="pos-form">
             <div class="pos-form-title">Nouvelle position</div>
@@ -938,6 +1034,7 @@ function selectCoin(coin){
   if(!coin) return;
   if(!COINS.find(c=>c.sym===coin.sym)) COINS.push(coin);
   selected=coin;
+  stopLiveChart();
   document.getElementById('emptyState').style.display='none';
   document.getElementById('coinDetail').style.display='flex';
   updateHero(); updateStats();
@@ -1056,12 +1153,86 @@ document.querySelector('.period-row').addEventListener('click',(e)=>{
   if(!btn||!selected) return;
   document.querySelectorAll('.p-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  loadChart(selected.sym, btn.dataset.interval, parseInt(btn.dataset.limit));
+  if(btn.dataset.interval==='live'){
+    startLiveChart(selected.sym);
+  } else {
+    stopLiveChart();
+    loadChart(selected.sym, btn.dataset.interval, parseInt(btn.dataset.limit));
+  }
 });
 
 // ═══════════════════════════════════════
-// INDICATORS
+// LIVE 1S CHART (WebSocket)
 // ═══════════════════════════════════════
+let liveWS=null, liveData=[], liveLabels=[];
+
+function stopLiveChart(){
+  if(liveWS){liveWS.close();liveWS=null;}
+  liveData=[];liveLabels=[];
+}
+
+function startLiveChart(sym){
+  stopLiveChart();
+  // Seed with last 60 1m candles to have history
+  fetch(`${BASE}/klines?symbol=${sym}&interval=1m&limit=60`).then(r=>r.json()).then(k=>{
+    liveLabels=k.map(r=>new Date(r[0]));
+    liveData=k.map(r=>parseFloat(r[4]));
+    drawLiveChart();
+    // Now open WS for real-time trades
+    liveWS=new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@aggTrade`);
+    liveWS.onmessage=(e)=>{
+      const d=JSON.parse(e.data);
+      const price=parseFloat(d.p);
+      const ts=new Date(d.T);
+      liveLabels.push(ts);
+      liveData.push(price);
+      if(liveLabels.length>300){liveLabels.shift();liveData.shift();}
+      updateLiveChart(price,ts);
+    };
+    liveWS.onerror=()=>{};
+  }).catch(()=>{});
+}
+
+function drawLiveChart(){
+  if(chart){chart.destroy();chart=null;}
+  const isUp=liveData.length>1&&liveData[liveData.length-1]>=liveData[0];
+  const color=isUp?'#3dffa0':'#ff4466';
+  const ctx=document.getElementById('priceChart').getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,0,250);
+  grad.addColorStop(0,isUp?'rgba(61,255,160,0.18)':'rgba(255,68,102,0.18)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels:[...liveLabels],datasets:[{data:[...liveData],borderColor:color,backgroundColor:grad,borderWidth:2,pointRadius:0,fill:true,tension:0.1}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#111827',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,
+        titleColor:'#556070',bodyColor:'#f0f4ff',
+        titleFont:{family:'DM Mono',size:10},bodyFont:{family:'DM Mono',size:13},padding:10,
+        callbacks:{title:i=>{const d=new Date(i[0].parsed.x);return d.toLocaleTimeString('fr-FR');},label:i=>'  '+fmt(i.parsed.y)}
+      }},
+      scales:{
+        x:{type:'time',time:{unit:'minute'},grid:{color:'rgba(255,255,255,0.04)',drawBorder:false},ticks:{color:'#556070',font:{family:'DM Mono',size:10},maxTicksLimit:6,maxRotation:0},border:{display:false}},
+        y:{position:'right',grid:{color:'rgba(255,255,255,0.04)',drawBorder:false},ticks:{color:'#556070',font:{family:'DM Mono',size:10},callback:v=>{if(v>=10000)return '$'+(v/1000).toFixed(0)+'k';if(v>=1)return '$'+v.toFixed(2);return '$'+v.toFixed(4);}},border:{display:false}}
+      }
+    }
+  });
+  document.getElementById('chartOverlay').classList.remove('show');
+}
+
+function updateLiveChart(price,ts){
+  if(!chart) return;
+  const isUp=liveData.length>1&&liveData[liveData.length-1]>=liveData[0];
+  const color=isUp?'#3dffa0':'#ff4466';
+  chart.data.labels=[...liveLabels];
+  chart.data.datasets[0].data=[...liveData];
+  chart.data.datasets[0].borderColor=color;
+  chart.update('none');
+}
+
+
 function calcRSI(closes,period=14){
   if(closes.length<period+1) return null;
   let g=0,l=0;
@@ -1445,13 +1616,19 @@ function removeCoinFromList(sym){
 
 function populateCoinSelect(){
   const sel = document.getElementById('posCoin');
+  const lsSel = document.getElementById('lsCoin');
   if(!sel) return;
   sel.innerHTML = '<option value="">Choisir...</option>';
+  if(lsSel) lsSel.innerHTML = '<option value="">Choisir...</option>';
   COINS.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.sym;
     opt.textContent = c.icon + ' ' + c.name + ' (' + c.short + ')';
     sel.appendChild(opt);
+    if(lsSel){
+      const opt2=opt.cloneNode(true);
+      lsSel.appendChild(opt2);
+    }
   });
 }
 
@@ -1982,6 +2159,91 @@ function startSuiviRefresh(){
   },15000);
 }
 
+// ═══════════════════════════════════════
+// LONG / SHORT SIMULATOR
+// ═══════════════════════════════════════
+let lsType='long';
+
+function setLSType(type){
+  lsType=type;
+  document.getElementById('lsBtnLong').classList.toggle('active',type==='long');
+  document.getElementById('lsBtnShort').classList.toggle('active',type==='short');
+  updateLSPreview();
+}
+
+async function updateLSPreview(){
+  const sym=document.getElementById('lsCoin').value;
+  const capital=parseFloat(document.getElementById('lsCapital').value);
+  const leverage=parseFloat(document.getElementById('lsLeverage').value)||10;
+  document.getElementById('lsLevVal').textContent=leverage+'×';
+  const feePct=parseFloat(document.getElementById('lsFees').value)||0.02;
+
+  let entry=parseFloat(document.getElementById('lsEntry').value);
+  let exit=parseFloat(document.getElementById('lsExit').value);
+
+  const hint=document.getElementById('lsHint');
+  const result=document.getElementById('lsResult');
+  const liqBar=document.getElementById('lsLiqBar');
+
+  if(!sym||!capital||capital<=0){ hint.style.display='block'; result.style.display='none'; liqBar.style.display='none'; return; }
+
+  // Auto-fill entry from live price if empty
+  if(!entry&&prices[sym]){
+    entry=prices[sym].price;
+    document.getElementById('lsEntry').placeholder=entry.toFixed(entry>100?2:4);
+    entry=prices[sym].price;
+  }
+  if(!entry){ hint.textContent='En attente du prix...'; hint.style.display='block'; result.style.display='none'; return; }
+  if(!exit){ hint.textContent='Entre un prix de clôture pour simuler'; hint.style.display='block'; result.style.display='none'; liqBar.style.display='block'; }
+
+  // Position size
+  const positionSize=capital*leverage;
+
+  // Liquidation price (simplified: margin / positionSize = % move)
+  // Long: liq = entry * (1 - 1/leverage * 0.9)
+  // Short: liq = entry * (1 + 1/leverage * 0.9)
+  const liqPrice=lsType==='long'
+    ? entry*(1-0.9/leverage)
+    : entry*(1+0.9/leverage);
+
+  document.getElementById('lsLiqPrice').textContent=fmt(liqPrice);
+  liqBar.style.display='block';
+
+  // Liquidation distance visual
+  if(exit){
+    const pctFromLiq=Math.min(100,Math.max(0,Math.abs(exit-liqPrice)/Math.abs(entry-liqPrice)*100));
+    const fill=document.getElementById('lsLiqFill');
+    // red if close to liq, green if far
+    const danger=lsType==='long'?(exit<=liqPrice*1.05):(exit>=liqPrice*0.95);
+    fill.style.width=pctFromLiq+'%';
+    fill.style.background=danger?'var(--red)':'var(--green)';
+
+    // PnL
+    const priceDiff=lsType==='long'?(exit-entry):(entry-exit);
+    const pnlGross=(priceDiff/entry)*positionSize;
+    // Fees: open + close on full position
+    const fees=(positionSize*feePct/100)*2;
+    const pnlNet=pnlGross-fees;
+    const roe=(pnlNet/capital)*100;
+
+    const isPos=pnlNet>=0;
+    const cls2=isPos?'pos':'neg';
+
+    document.getElementById('lsPnl').textContent=(isPos?'+':'')+fmt(pnlNet);
+    document.getElementById('lsPnl').className='ls-res-val '+cls2;
+    document.getElementById('lsRoe').textContent=(isPos?'+':'')+roe.toFixed(2)+'%';
+    document.getElementById('lsRoe').className='ls-res-val '+cls2;
+    document.getElementById('lsPosition').textContent=fmt(positionSize);
+    document.getElementById('lsMargin').textContent=fmt(capital);
+    document.getElementById('lsFeesTotal').textContent='-'+fmt(fees);
+    document.getElementById('lsPnlGross').textContent=(pnlGross>=0?'+':'')+fmt(pnlGross);
+    document.getElementById('lsPnlGross').className='rv '+(pnlGross>=0?'pos':'neg');
+    document.getElementById('lsLiqVal').textContent=fmt(liqPrice);
+    hint.style.display='none';
+    result.style.display='block';
+  }
+}
+
 async function init(){
   await fetchEurRate();
   await fetchTicker();
@@ -1992,6 +2254,8 @@ async function init(){
   initSearch();
   startSuiviRefresh();
   updateSuiviTabBadge();
+  // Populate lsCoin on positions tab open too
+  populateCoinSelect();
 }
 
 (function(){
