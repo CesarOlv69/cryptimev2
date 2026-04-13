@@ -1183,7 +1183,7 @@ function renderSignal(d){
       <div class="ind-top"><div class="ind-name">MACD</div><div class="ind-sig ${sc[d.macdSig]}">${sl[d.macdSig]}</div></div>
       <div class="ind-val" style="font-size:16px;">${d.macd??'—'}</div>
       <div class="ind-desc">Histo : <span style="color:${parseFloat(d.macdHist)>=0?'var(--green)':'var(--red)'}">${d.macdHist??'—'}</span></div>
-      <div class="ind-desc">${d.macdSig==='buy'?'Croisement haussier':'d.macdSig'==='sell'?'Croisement baissier':'Pas de signal clair'}</div>
+      <div class="ind-desc">${d.macdSig==='buy'?'Croisement haussier':d.macdSig==='sell'?'Croisement baissier':'Pas de signal clair'}</div>
     </div>
     <div class="ind-card">
       <div class="ind-top"><div class="ind-name">Bollinger (20)</div><div class="ind-sig ${sc[d.bbSig]}">${sl[d.bbSig]}</div></div>
@@ -1232,7 +1232,8 @@ function renderSignal(d){
 function resetSignal(){
   document.getElementById('indGrid').innerHTML=`<div class="sig-loading"><div class="spinner"></div><span>Analyse en cours...</span></div>`;
   document.getElementById('levelsCard').style.display='none';
-  document.getElementById('aiContent').innerHTML=`<div class="ai-loading"><div class="spinner"></div><span>Lecture des indicateurs...</span></div>`;
+  const aiEl=document.getElementById('aiContent');
+  if(aiEl) aiEl.innerHTML=`<div class="ai-loading"><div class="spinner"></div><span>Lecture des indicateurs...</span></div>`;
   
 }
 
