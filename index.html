@@ -951,7 +951,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-    if(btn.dataset.tab==='signal'&&selected&&!signalData) loadSignal();
+    if(btn.dataset.tab==='signal'&&selected){ signalData=null; loadSignal(); }
     if(btn.dataset.tab==='positions'){ populateCoinSelect(); checkNotifStatus(); setMode(posMode); }
     if(btn.dataset.tab==='suivi'){ renderSuivi(); startSuiviRefresh(); }
   });
@@ -1084,7 +1084,7 @@ async function loadSignal(){
   if(!selected) return;
   resetSignal();
   const tfMap={'2h':['15m',60],'4h':['1h',100],'24h':['4h',100]};
-  const [interval,limit]=tfMap[currentTF];
+  const [interval,limit]=tfMap[currentTF||'4h']||['1h',100];
   try{
     const res=await fetch(`${BASE}/klines?symbol=${selected.sym}&interval=${interval}&limit=${limit}`);
     if(!res.ok) throw new Error(res.status);
