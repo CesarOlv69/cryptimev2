@@ -494,6 +494,7 @@ header {
         <span class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none">✕</span>
       </div>
     </div>
+    <div id="sidebarList"></div>
   </div>
 
   <div class="main">
@@ -901,11 +902,10 @@ async function fetchTicker(){
 // RENDER SIDEBAR
 // ═══════════════════════════════════════
 function renderSidebar(query){
-  const sb=document.getElementById('sidebar');
-  const sw=sb.querySelector('.sidebar-search-wrap');
-  sb.innerHTML='';
-  if(sw) sb.appendChild(sw);
-  const q=(query||document.getElementById('coinSearch')?.value||'').toLowerCase().trim();
+  const list=document.getElementById('sidebarList');
+  if(!list) return;
+  list.innerHTML='';
+  const q=(query!==undefined?query:document.getElementById('coinSearch')?.value||'').toLowerCase().trim();
   if(q){
     const res=ALL_COINS.filter(c=>
       c.name.toLowerCase().includes(q)||c.short.toLowerCase().includes(q)||c.sym.toLowerCase().includes(q)
@@ -913,9 +913,8 @@ function renderSidebar(query){
     const cnt=document.createElement('div');
     cnt.className='search-count';
     cnt.textContent=res.length+' résultat'+(res.length>1?'s':'');
-    sb.appendChild(cnt);
-    res.forEach(coin=>sb.appendChild(makeCoinRow(coin)));
-    // Fetch prices for unseen coins
+    list.appendChild(cnt);
+    res.forEach(coin=>list.appendChild(makeCoinRow(coin)));
     const missing=res.filter(c=>!prices[c.sym]).map(c=>c.sym);
     if(missing.length) fetchPricesFor(missing);
   } else {
@@ -924,14 +923,14 @@ function renderSidebar(query){
     if(favCoins.length){
       const lbl=document.createElement('div');
       lbl.className='sidebar-section-label'; lbl.textContent='⭐ FAVORIS';
-      sb.appendChild(lbl);
-      favCoins.forEach(c=>sb.appendChild(makeCoinRow(c)));
+      list.appendChild(lbl);
+      favCoins.forEach(c=>list.appendChild(makeCoinRow(c)));
     }
     const lbl2=document.createElement('div');
     lbl2.className='sidebar-section-label';
-    lbl2.textContent=favCoins.length?'TOP MARCHÉS':'TOP MARCHÉS';
-    sb.appendChild(lbl2);
-    rest.forEach(c=>sb.appendChild(makeCoinRow(c)));
+    lbl2.textContent='TOP MARCHÉS';
+    list.appendChild(lbl2);
+    rest.forEach(c=>list.appendChild(makeCoinRow(c)));
   }
 }
 
